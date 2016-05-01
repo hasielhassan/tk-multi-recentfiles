@@ -23,10 +23,14 @@ browser_widget = tank.platform.import_framework("tk-framework-widget", "browser_
 class WorkFileBrowserWidget(browser_widget.BrowserWidget):
 
     history_item_action = QtCore.Signal(str)
+
+    delete_item_action = QtCore.Signal(str)
     
     def __init__(self, parent=None):
         browser_widget.BrowserWidget.__init__(self, parent)
         self._user_thumb_mapping = {}
+
+        self._app = parent._app
 
     def open_history_file(self):
         try:
@@ -34,7 +38,16 @@ class WorkFileBrowserWidget(browser_widget.BrowserWidget):
         except:
             QtGui.QMessageBox.critical(self, "Cannot Resolve Path!", "Cannot resolve this path!")            
             return
-        self.history_item_action.emit(path)    
+        self.history_item_action.emit(path)
+
+    def delete_history_file(self):
+        try:
+            path = self.sender().path
+        except:
+            QtGui.QMessageBox.critical(self, "Cannot Resolve Path!", "Cannot resolve this path!")            
+            return
+
+        self.delete_item_action.emit(path)  
 
     def get_file_owner(self, path):
         try:
@@ -42,7 +55,23 @@ class WorkFileBrowserWidget(browser_widget.BrowserWidget):
             owner = pwd.getpwuid(os.stat(path).st_uid).pw_name
             return owner
         except Exception, e:
-            return None
+
+            try:
+                #workarround for windows
+
+                #ensure the local python win32 librarys can be used by the engines python interpreter
+                import sys
+                #todo: use dynamic path, or other method...
+                sys.path.append("C:\\Python27\\Lib\\site-packages\\win32")
+
+                import win32security
+                f = win32security.GetFileSecurity(path, win32security.OWNER_SECURITY_INFORMATION)
+                (username, domain, sid_name_use) =  win32security.LookupAccountSid(None, f.GetSecurityDescriptorOwner())
+                return username
+
+            except:
+
+                return None
 
     def get_file_owner_thumb_url(self, path):
         # return the thumbnail url of the owner of the file
@@ -75,30 +104,50 @@ class WorkFileBrowserWidget(browser_widget.BrowserWidget):
         # now get all work items
         tw = self._app.get_template("template_work")
         ctx_fields = self._app.context.as_template_fields(tw)
-        for wi in self._app.tank.paths_from_template(tw, ctx_fields):
-            # get the fields
-            fields = tw.get_fields(wi)
-            name = fields["name"]
-            version = fields["version"]
-            # group it by name, then by version
-            if not name in work_items:
-                work_items[name] = {}
-            work_items[name][version] = wi
-            
-        # we now have a dict like this    
-        # {"name1": {1:"/path", 2:"/path"}, "name2": {...}}
-        # now create menu items
-        data = []
-        for name in sorted(work_items.keys()):
-            max_ver = max(work_items[name].keys())
-            path = work_items[name][max_ver]
-            data.append({"name": name, 
-                         "all_versions": work_items[name],
-                         "version": max_ver, 
-                         "path": path, 
-                         "file_owner": self.get_file_owner(path),
-                         "file_owner_thumb": self.get_file_owner_thumb_url(path),
-                         "mtime": os.path.getmtime(path)})
+
+        if self._app.group_files_by_name:
+            #goup al results by name token
+            for wi in self._app.tank.paths_from_template(tw, ctx_fields):
+                # get the fields
+                fields = tw.get_fields(wi)
+                name = fields["name"]
+                version = fields["version"]
+                # group it by name, then by version
+                if not name in work_items:
+                    work_items[name] = {}
+                work_items[name][version] = wi
+                
+            # we now have a dict like this    
+            # {"name1": {1:"/path", 2:"/path"}, "name2": {...}}
+            # now create menu items
+            data = []
+            for name in sorted(work_items.keys()):
+                max_ver = max(work_items[name].keys())
+                path = work_items[name][max_ver]
+                data.append({"name": name, 
+                             "all_versions": work_items[name],
+                             "version": max_ver, 
+                             "path": path, 
+                             "file_owner": self.get_file_owner(path),
+                             "file_owner_thumb": self.get_file_owner_thumb_url(path),
+                             "mtime": os.path.getmtime(path)})
+
+        else:
+            #process all results, one item by workfile
+            data = []
+            for path in self._app.tank.paths_from_template(tw, ctx_fields):
+                # get the fields
+                fields = tw.get_fields(path)
+                name = fields["name"]
+                version = fields["version"]
+
+                data.append({"name": name, 
+                             "all_versions": {version:path},
+                             "version": version, 
+                             "path": path, 
+                             "file_owner": self.get_file_owner(path),
+                             "file_owner_thumb": self.get_file_owner_thumb_url(path),
+                             "mtime": os.path.getmtime(path)})
 
         # get data always need to return a dict
         return {"data": data}
@@ -151,6 +200,18 @@ class WorkFileBrowserWidget(browser_widget.BrowserWidget):
                 i.action = QtGui.QAction("Open previous version %03d" % version, i)
                 i.action.path = r["all_versions"][version]                
                 i.action.triggered.connect(self.open_history_file)                       
+                i.addAction(i.action)
+            cnt = 0
+
+            #also add an option to delete the file...
+            for version in sorted(r["all_versions"].keys(), reverse=True):         
+                # max 20 versions on menu
+                if cnt > 20:
+                    break
+                cnt += 1
+                i.action = QtGui.QAction("Delete previous version %03d" % version, i)
+                i.action.path = r["all_versions"][version]                
+                i.action.triggered.connect(self.delete_history_file)                       
                 i.addAction(i.action)
                                 
             # assign some data to the object

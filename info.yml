@@ -23,12 +23,24 @@ configuration:
         description: A flag whether to launch this app's UI at startup.
         default_value: true
 
+    group_files_by_name:
+        type: bool
+        description: A flag whether to group or not the files by its name token.
+        default_value: true
+
     hook_add_file_to_scene:
         type: hook
         description: Called when a file should be loaded. The file_path parameter will contain a path 
                      to the file on disk to load.
         parameters: [engine_name, file_path]
         default_value: multi_recentfiles_openfile
+
+    hook_delete_file_from_path:
+        type: hook
+        description: Called when a file should be deleted. The file_path parameter will contain a path 
+                     to the file on disk to delete.
+        parameters: [file_path]
+        default_value: multi_recentfiles_deletefile
 
 
 # this app can run in any engine, provided that the hook is updated

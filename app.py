@@ -21,6 +21,10 @@ class RecentFiles(tank.platform.Application):
         """
         Called as the application is being initialized
         """
+
+        self.group_files_by_name = self.get_setting('group_files_by_name')
+
+
         tk_multi_recentfiles = self.import_module("tk_multi_recentfiles")
         cb = lambda : tk_multi_recentfiles.show_dialog(self)
         # add stuff to main menu

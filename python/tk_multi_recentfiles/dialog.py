@@ -21,9 +21,9 @@ class AppDialog(QtGui.QWidget):
     def __init__(self, app):
         QtGui.QWidget.__init__(self)
         # set up the UI
-        self.ui = Ui_Dialog() 
-        self.ui.setupUi(self)    
-        self._app = app
+        self.ui = Ui_Dialog()
+        self._app = app 
+        self.ui.setupUi(self)
         
         # display the context in the title bar of the window
         ctx_name = str(self._app.context)        
@@ -34,6 +34,7 @@ class AppDialog(QtGui.QWidget):
         
         self.ui.browser.action_requested.connect( self.load_item )
         self.ui.browser.history_item_action.connect( self.load_item_from_path )
+        self.ui.browser.delete_item_action.connect( self.delete_item_from_path )
         self.ui.browser.selection_changed.connect( self.toggle_load_button_enabled )
         self.ui.load.clicked.connect( self.load_item )
                 
@@ -90,6 +91,16 @@ class AppDialog(QtGui.QWidget):
         
         # close dialog
         self.close()
-        
+
+
+    def delete_item_from_path(self, path):
+
+        # call out to our hook for loading.
+        self._app.log_debug("Calling delete hook for %s" % path)
+
+        self._app.execute_hook("hook_delete_file_from_path",
+                               file_path=path)
+
+        self.setup_file_list()     
         
         
