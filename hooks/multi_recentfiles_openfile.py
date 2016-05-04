@@ -39,11 +39,17 @@ class AddFileToScene(tank.Hook):
         elif self.parent.engine.name == "tk-3dsmax":
             self.load_item_from_path_3dsmax(file_path)
 
+        elif self.parent.engine.name == "tk-3dsmaxplus":
+            self.load_item_from_path_3dsmaxplus(file_path)
+
         elif self.parent.engine.name == "tk-photoshop":
             self.load_item_from_path_photoshop(file_path)
 
         elif self.parent.engine.name == 'tk-hiero':
             self.load_item_from_path_hiero(file_path)
+
+        elif self.parent.engine.name == 'tk-fusion':
+            self.load_item_from_path_fusion(file_path)
 
         else:
             raise tank.TankError("Unsupported engine '%s'!" % engine_name)
@@ -74,6 +80,15 @@ class AddFileToScene(tank.Hook):
         path = path.replace(os.sep, "/")
         # open
         nuke.scriptOpen(path)
+
+
+    def load_item_from_path_fusion(self, path):
+        
+        import PeyeonScript
+        f_connection = PeyeonScript.scriptapp ("Fusion")
+
+        # open
+        f_connection.LoadComp (path)
         
         
     def load_item_from_path_maya(self, path):
@@ -144,6 +159,54 @@ class AddFileToScene(tank.Hook):
         else:
             # no need to save any change. load new file.
             mxs.loadMaxFile(path)
+
+    def load_item_from_path_3dsmaxplus(self, path):
+
+        import MaxPlus
+
+        # there is a file open
+        if MaxPlus.FileManager.IsSaveRequired():
+            # there are unsaved changes in the scene
+            res = QtGui.QMessageBox.question(None,
+                                             "Save your scene?",
+                                             "Your scene has unsaved changes. Save before proceeding?",
+                                             QtGui.QMessageBox.Yes|QtGui.QMessageBox.No|QtGui.QMessageBox.Cancel)
+            
+            if res == QtGui.QMessageBox.Cancel:
+                # return to dialog
+                return
+
+            elif res == QtGui.QMessageBox.No:
+                # don't save!
+                MaxPlus.FileManager.Open(path)
+                return
+
+            else:
+                # save before!
+
+                if MaxPlus.FileManager.GetFileNameAndPath() != '':
+                    # scene has a name!
+                    # normal save
+                    if MaxPlus.FileManager.Save(MaxPlus.FileManager.GetFileNameAndPath()):
+                        MaxPlus.FileManager.Open(path)
+                    else:
+                        # still unsaved changes
+                        # assume user clicked cancel in dialog
+                        return
+
+                else:
+                    # scene does not have a name. 
+                    # save as dialog
+                    if MaxPlus.FileManager.SaveAs():
+                        MaxPlus.FileManager.Open(path)
+                    else:
+                        # still unsaved changes
+                        # assume user clicked cancel in dialog
+                        return
+                    
+        else:
+            # no need to save any change. load new file.
+            MaxPlus.FileManager.Open(path)
 
     def load_item_from_path_photoshop(self, path):
         import photoshop
