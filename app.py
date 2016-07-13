@@ -25,10 +25,22 @@ class RecentFiles(tank.platform.Application):
         self.group_files_by_name = self.get_setting('group_files_by_name')
 
 
-        tk_multi_recentfiles = self.import_module("tk_multi_recentfiles")
-        cb = lambda : tk_multi_recentfiles.show_dialog(self)
+        self.tk_multi_recentfiles = self.import_module("tk_multi_recentfiles")
+        cb = lambda : self.tk_multi_recentfiles.show_dialog(self)
         # add stuff to main menu
         self.engine.register_command("Recent Work Files...", cb)
+
+
+    def post_engine_init(self):
+
+        """
+        Implemented by deriving classes in order to run
+        code after the engine has completely finished
+        initializing itself and all its apps. At this point,
+        the engine has a fully populated apps dictionary
+        and all loaded apps have been fully initialized
+        and validated.
+        """
 
         # only launch the dialog once at startup
         # use tank object to store this flag
@@ -37,4 +49,4 @@ class RecentFiles(tank.platform.Application):
             tank._tk_multi_recent_files_shown = True
             # show the UI at startup - but only if the engine supports a UI
             if self.get_setting('launch_at_startup') and self.engine.has_ui:
-                tk_multi_recentfiles.show_dialog(self)
+                self.tk_multi_recentfiles.show_dialog(self)
